@@ -2,6 +2,7 @@ require_relative 'spec_helper'
 
 describe "Triodos" do
 
+
   context 'mt940' do
     before :each do
       @file_name = File.dirname(__FILE__) + '/fixtures/triodos.txt'

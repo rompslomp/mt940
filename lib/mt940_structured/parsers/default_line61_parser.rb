@@ -18,13 +18,15 @@ module MT940Structured::Parsers
 
     def parse_transaction(line_61)
       if line_61.match(get_regex_for_line_61)
-        type = $3 == 'D' ? -1 : 1
+        #puts "$3 -- #{$3}"
+        type = $3 == 'D' ? -1 : ($3 == 'RC' ? -1 : 1)
         references = extract_references($7)
         transaction = MT940::Transaction.new(amount: type * ($4 + '.' + $5).to_f)
         transaction.customer_reference = references[:customer]
         transaction.bank_reference = references[:bank]
         transaction.date = parse_date($1)
         transaction.date_accounting = $2 ? parse_date($1[0..1] + $2) : transaction.date
+        transaction.type = $3
         transaction
       end
     end

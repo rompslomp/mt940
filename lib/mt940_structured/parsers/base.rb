@@ -2,15 +2,15 @@ require 'set'
 
 module MT940Structured::Parsers
   NEXT_LINES_FOR = {
-    '20' => ['25'],
+    '20' => ['21','25'],
+    '21' => ['25'],
     '25' => ['28'],
     '28' => ['60'],
     '60' => ['61', '62'],
-    '61' => ['62', '86'],
-    '86' => ['61', '62']
+    '61' => ['61', '62', '86'],
+    '86' => ['20', '61', '62']
   }
-
-  NO_NEXT_LINES = Set.new(['62', '64', '65'])
+  NO_NEXT_LINES = Set.new(['62','64', '65'])
 
   class Base
     attr_reader :bank
@@ -52,6 +52,8 @@ module MT940Structured::Parsers
       while !lines.empty? do
         start_index = lines.index { |line| line.match(/^:20:/)}
         end_index = lines.index { |line| line.match(/^:62(F|M):/)}
+        optional_avail = lines.index { |line| line.match(/^:64:/)}
+        end_index = optional_avail if optional_avail && optional_avail > end_index
         if start_index && end_index > start_index
           result << lines[start_index..end_index]
           lines = lines.drop(end_index + 1)

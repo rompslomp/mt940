@@ -8,7 +8,7 @@ module MT940Structured::Parsers
       @transaction_parsers = transaction_parsers
       @bank_statement = MT940::BankStatement.new([])
       lines.each do |line|
-        if line.match /^:(\d{2})(F|C|M)?:/
+        if line.match /^:(\d{2})(F|C|M|P)?:/
           parse_method = "parse_line_#{$1}".to_sym
           send(parse_method, line) if respond_to? parse_method
         else
@@ -35,10 +35,24 @@ module MT940Structured::Parsers
         @bank_statement.bank_account = $1.gsub(/^0+/, '')
         @is_structured_format = true
       when /^:\d{2}:\D*(\d*)/
-        @bank_statement.bank_account = $1.gsub(/\D/, '').gsub(/^0+/, '')
+        # Rolled back to previous as the account number ($1) was getting truncated when it had a - 
+        # Also added the removal of leading 0's to the original
+        # @bank_statement.bank_account = $1.gsub(/\D/, '').gsub(/^0+/, '')
+        # @bank_statement.bank_account = line[4 .. -1] #original
+        @bank_statement.bank_account = line[4 .. -1].gsub(/^0+/, '')
         @is_structured_format = false
-      else
-        raise "Unknown format for tag 25: #{line}"
+       when /^:\d{2}:IE/
+          #puts "B4"
+          @bank_statement.bank_account_iban = line[4, 18]
+          @bank_statement.bank_account = iban_to_account(@bank_statement.bank_account_iban)
+          @is_structured_format = true
+      when /^:\d{2}P:(\d*)\s.*/
+        @bank_statement.bank_account = $1.gsub(/^0+/, '')
+        @is_structured_format = false
+       else
+          #puts "B5"
+          @bank_statement.bank_account = line[4, 18]
+          @is_structured_format = false
       end
     end
 
@@ -49,11 +63,17 @@ module MT940Structured::Parsers
     def parse_line_61(line_61)
       @is_structured_format = @transaction_parsers.structured?(line_61) if @transaction_parsers.respond_to?(:structured?)
       @transaction_parser = @transaction_parsers.for_format @is_structured_format
-      transaction = @transaction_parser.parse_transaction(line_61)
-      transaction.bank_account = @bank_statement.bank_account
-      transaction.bank_account_iban = @bank_statement.bank_account_iban
-      transaction.currency = @bank_statement.previous_balance.currency
-      transaction.bank = @bank
+      begin
+        transaction = @transaction_parser.parse_transaction(line_61)
+        transaction.bank_account = @bank_statement.bank_account
+        transaction.bank_account_iban = @bank_statement.bank_account_iban
+        transaction.currency = @bank_statement.previous_balance.currency
+        transaction.bank = @bank
+      rescue
+        err= "Problem parsing a transaction: " + line_61
+        #puts err
+        raise err
+      end
       @bank_statement.transactions << transaction
     end
 
@@ -64,6 +84,10 @@ module MT940Structured::Parsers
     def parse_line_62(line)
       @bank_statement.new_balance = parse_balance(line)
     end
+
+    # def parse_line_64(line)
+    #   @bank_statement.new_balance = parse_balance(line,-1)
+    # end
   end
 
 end
