@@ -54,7 +54,7 @@ module MT940Structured::Parsers
         end_index = lines.index { |line| line.match(/^:62(F|M):/)}
         optional_avail = lines.index { |line| line.match(/^:64:/)}
         end_index = optional_avail if optional_avail && optional_avail > end_index
-        if start_index && end_index > start_index
+        if start_index && end_index && end_index > start_index
           result << lines[start_index..end_index]
           lines = lines.drop(end_index + 1)
         else
